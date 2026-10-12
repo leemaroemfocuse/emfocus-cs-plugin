@@ -6,7 +6,7 @@ argument-hint: "[1|3|all] [project=<ID>] [ticket=<ID> [url=<티켓 주소>]]"
 인자: `$ARGUMENTS`
 
 1. 인자를 해석한다. 숫자면 그 건수, `all`이면 0, 없으면 1. `project=<ID>`가 있으면 projectId로 쓴다.
-   - `ticket=<ID>`가 있으면 그 티켓 하나만 분석한다(새 티켓 자동 분석용). `claim_tickets`는 호출하지 않으므로 담당자는 바뀌지 않는다. `get_my_ticket_detail`로 rowVersion·상태를 얻고, `url=<주소>`가 있으면 그것을 ticketUrl로 쓴다. 조회가 안 되거나 상태가 접수(0)·대기(1)가 아니거나 내부 메모에 이미 `[AI 자동 분석]`이 있으면 "분석 대상 아님" 한 줄만 출력하고 끝낸다. 아니면 2를 건너뛰고 이 티켓으로 3을 수행한다.
+   - `ticket=<ID>`가 있으면 그 티켓 하나만 분석한다(새 티켓 자동 분석용). `claim_tickets`는 호출하지 않으므로 담당자는 바뀌지 않는다. `get_my_ticket_detail`로 rowVersion·상태를 얻고, `url=<주소>`가 있으면 그것을 ticketUrl로 쓴다. 조회가 안 되거나 상태가 접수(0)·대기(1)가 아니거나 삭제되지 않은 내부 메모 본문이 `[AI 자동 분석]`으로 시작하는 것이 이미 있으면(처리 이력의 "MCP 내부 메모 작성" 기록은 판단에 쓰지 않는다) "분석 대상 아님" 한 줄만 출력하고 끝낸다. 아니면 2를 건너뛰고 이 티켓으로 3을 수행한다.
 2. `claim_tickets`(cs-center MCP)를 limit, projectId로 한 번 호출한다.
    - 각 항목은 `{ result, ticketUrl }`이다. `result.code=resumed`는 이전 실행이 끊긴 티켓이다. 새로 가져간 것과 똑같이 처리한다.
    - `claimed`가 비어 있으면 "가져갈 티켓 없음" 한 줄만 출력하고 즉시 끝낸다. 다른 도구는 호출하지 않는다.
