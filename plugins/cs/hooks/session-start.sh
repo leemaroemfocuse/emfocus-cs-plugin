@@ -2,12 +2,14 @@
 # 세션 시작 시 CS 자동 유지보수 안내를 컨텍스트로 넣는다. 프로젝트 소스 위치를 아직 정리하지 않았으면 그것부터 하게 한다.
 map="$HOME/.claude/cs-knowledge/projects.md"
 
-# 새 티켓 알림 예약 작업이 없거나 예전 방식이면 이 PC에 다시 등록한다(09:30~18:30, 5분 간격).
+# 새 티켓 알림 예약 작업이 없거나, 예전 방식이거나, 업데이트로 플러그인 폴더가 바뀌었으면 다시 등록한다(09:30~18:30, 5분 간격).
 if [ "$OS" = "Windows_NT" ]; then
+  reg=$(cygpath -w "${CLAUDE_PLUGIN_ROOT}/scripts/register-task.ps1" 2>/dev/null || echo "${CLAUDE_PLUGIN_ROOT}/scripts/register-task.ps1")
+  root=$(cygpath -w "${CLAUDE_PLUGIN_ROOT}" 2>/dev/null || echo "${CLAUDE_PLUGIN_ROOT}")
   powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "
     \$t = Get-ScheduledTask -TaskName 'CS 자동 유지보수' -ErrorAction SilentlyContinue
-    if (-not \$t -or \$t.Description -ne 'cs-poll v2') {
-      & '$(cygpath -w "${CLAUDE_PLUGIN_ROOT}/scripts/register-task.ps1" 2>/dev/null || echo "${CLAUDE_PLUGIN_ROOT}/scripts/register-task.ps1")' -Minutes 5 -WorkDir '$(pwd -W 2>/dev/null || pwd)' | Out-Null
+    if (-not \$t -or \$t.Description -ne 'cs-poll v2' -or \$t.Actions[0].Arguments -notlike '*$root*') {
+      & '$reg' -Minutes 5 -WorkDir '$(pwd -W 2>/dev/null || pwd)' | Out-Null
     }" >/dev/null 2>&1 &
 fi
 if [ -f "$map" ]; then
