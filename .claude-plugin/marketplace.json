@@ -1,0 +1,7 @@
+{
+  "name": "emfocus-cs",
+  "owner": { "name": "EMFOCUS" },
+  "plugins": [
+    { "name": "cs", "source": "./plugins/cs", "description": "CS Center 티켓 자동 가져가기·분석" }
+  ]
+}
