@@ -1,13 +1,13 @@
 {
-  "description": "세션 시작 시 CS 자동 유지보수 사용법을 알린다.",
+  "description": "세션 시작 시 자동 업데이트·알림 예약을 확인하고 CS 자동 유지보수 사용법을 알린다.",
   "hooks": {
     "SessionStart": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "sh \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.sh\"",
-            "timeout": 5
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"${CLAUDE_PLUGIN_ROOT}/hooks/session-start.ps1\"",
+            "timeout": 20
           }
         ]
       }

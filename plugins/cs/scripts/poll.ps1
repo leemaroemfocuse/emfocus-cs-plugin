@@ -55,8 +55,11 @@ foreach ($t in $new) {
 # 분석은 한 번에 한 건만. 실패해도 같은 티켓을 계속 다시 돌지 않도록 대기열에서 먼저 뺀다.
 $queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
 if (-not $queue) { exit 0 }
+# claude: PATH(npm 설치) → 데스크톱 앱 안의 Claude Code(가장 최근 버전). 못 찾으면 대기열을 그대로 두고 끝낸다.
+$claude = (Get-Command claude.cmd, claude.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
+if (-not $claude) { $claude = (Get-ChildItem "$env:APPDATA\Claude\claude-code\*\*\claude.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName }
+if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 분석을 건너뛴다.'; exit 1 }
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
-$claude = (Get-Command claude.cmd -ErrorAction Stop).Source
 $tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge "Bash(powershell:*)" Read Grep Glob Write PushNotification'
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
 $map = Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'
