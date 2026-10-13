@@ -30,7 +30,7 @@ try {
     $auth = [regex]::Replace($cfg['headers']['Authorization'], '\$\{(\w+)\}', {
         param($m) $v = [Environment]::GetEnvironmentVariable($m.Groups[1].Value, 'User'); if ($v) { $v } else { [Environment]::GetEnvironmentVariable($m.Groups[1].Value) } })
     $mcp = @{ url = $cfg['url']; headers = @{ Authorization = $auth } }
-    $body = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_my_new_tickets","arguments":{"hours":25}}}'
+    $body = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_my_new_tickets","arguments":{"hours":168,"limit":100}}}'
     $res = Invoke-WebRequest $mcp.url -Method Post -UseBasicParsing -TimeoutSec 30 -Body $body -ContentType 'application/json' `
         -Headers @{ Authorization = $mcp.headers.Authorization; Accept = 'application/json, text/event-stream' }
     # 응답 헤더에 charset이 없어 한글이 깨지므로 바이트를 직접 UTF-8로 읽는다.
@@ -40,7 +40,8 @@ try {
 } catch { Log "조회 실패: $($_.Exception.Message)"; exit 1 }
 
 $seen = if (Test-Path $seenFile) { @(Get-Content $seenFile) } else { @() }
-$new = @($tickets | Where-Object { "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object ticketId)
+# 최근 7일 티켓 중 접수(0)·대기(1)만 본다. 진행·완료된 티켓은 알리지도 분석하지도 않는다. 접수 먼저, 같은 상태는 오래된 순.
+$new = @($tickets | Where-Object { "$($_.statusCode)" -in '0', '1' -and "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object statusCode, ticketId)
 $site = $mcp.url -replace '/mcp$', ''
 
 # 새 티켓은 올라온 만큼 바로 알리고 분석 대기열에 넣는다.
