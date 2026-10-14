@@ -119,17 +119,26 @@ try {
         --allowedTools $allow --disallowedTools ($deny -join ' ') @dirs --output-format stream-json --verbose 2>&1
 } finally { Pop-Location; Remove-Item $mcpFile -ErrorAction SilentlyContinue }
 # 무엇을 했는지 남긴다: 부른 도구와 읽은 파일 경로(내용은 남기지 않음), 그리고 최종 답변.
-$out = @()
+# 실패 원인($errs)도 모아서, 실패하면 티켓 내부 메모로 남긴다(로그를 찾으러 가지 않아도 되게).
+$out = @(); $errs = @(); $toolNames = @{}
 foreach ($line in $raw) {
-    try { $e = "$line" | ConvertFrom-Json } catch { if ("$line" -notlike 'Warning: no stdin*') { Log "출력: $line" }; continue }
-    if ($e.type -eq 'assistant') {
+    try { $e = "$line" | ConvertFrom-Json } catch { if ("$line" -notlike 'Warning: no stdin*') { Log "출력: $line"; $errs += "실행 오류: $line" }; continue }
+    if ($e.type -eq 'user') {
+        foreach ($c in @($e.message.content | Where-Object { $_.type -eq 'tool_result' -and $_.is_error })) {
+            $msg = "$(@($c.content | ForEach-Object { if ($_.text) { $_.text } else { $_ } }) -join ' ')"
+            $errs += "도구 오류($($toolNames[$c.tool_use_id])): $($msg.Substring(0, [Math]::Min(300, $msg.Length)))"
+        }
+    } elseif ($e.type -eq 'assistant') {
         foreach ($c in @($e.message.content | Where-Object { $_.type -eq 'tool_use' })) {
+            $toolNames[$c.id] = $c.name
             $what = @($c.input.file_path, $c.input.path, $c.input.pattern, $c.input.ticketId) | Where-Object { $_ } | Select-Object -First 2
             Log "티켓 $ticketId 도구: $($c.name) $($what -join ' ')"
         }
     } elseif ($e.type -eq 'result') {
         $out = @("$($e.result)" -split "`r?`n")
         Log "티켓 $ticketId 결과($($e.subtype)):"
+        if ($e.subtype -ne 'success' -or $e.is_error) { $errs += "종료 사유: $($e.subtype)" }
+        foreach ($d in @($e.permission_denials)) { if ($d) { $errs += "권한 거부: $($d.tool_name)" } }
         $out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
     }
 }
@@ -144,5 +153,17 @@ if (@($out | ForEach-Object { "$_" } | Where-Object { $_ -like "MEMO_OK|*" })) {
     $t = $tickets | Where-Object { "$($_.ticketId)" -eq "$ticketId" } | Select-Object -First 1
     $code = if ($t) { $t.ticketCode } else { "#$ticketId" }
     Log "분석 실패 티켓 $ticketId (메모 등록 안 됨)"
+    # 왜 실패했는지 티켓에 바로 보이게 내부 메모로 남긴다. 머리말이 AI 메모와 같아 직원 누구나 지울 수 있다.
+    $last = @($out | Where-Object { "$_".Trim() } | Select-Object -Last 5)
+    $why = if ($errs) { @($errs | Select-Object -Last 8) } else { @('AI가 메모를 남기지 않고 끝남. 마지막 답변:') + $last }
+    $memo = "[AI 자동 분석] 실패 - 직접 확인 필요`n`n원인:`n" + (($why | ForEach-Object { "- $_" }) -join "`n") + "`n`n자세한 기록: 분석한 PC의 %LOCALAPPDATA%\CsCenter\cs-auto.log"
+    try {
+        $rv = (McpCall 'get_my_ticket_detail' "{`"ticketId`":$ticketId}").ticket.rowVersion
+        $json = @{ ticketId = $ticketId; content = $memo; expectedRowVersion = $rv; idempotencyKey = [guid]::NewGuid().ToString() } | ConvertTo-Json -Compress
+        # 본문을 ASCII로 보내야 PowerShell 5.1이 한글을 깨뜨리지 않는다.
+        $json = [regex]::Replace($json, '[^\x00-\x7F]', { '\u{0:x4}' -f [int][char]$args[0].Value })
+        $res = McpCall 'add_internal_note' $json
+        if (-not $res.success) { Log "실패 메모 등록 안 됨: $($res.message)" }
+    } catch { Log "실패 메모 등록 오류: $($_.Exception.Message)" }
     & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $code AI 분석 실패 - 직접 확인" "$($t.title)" "$site/Tickets/$ticketId"
 }
