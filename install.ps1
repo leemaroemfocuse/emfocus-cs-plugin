@@ -1,8 +1,9 @@
 # CS 자동 유지보수 한 번에 설치·업데이트. 처음 설치든 예전 설치를 최신으로 올리든 이것 하나로 끝난다.
 # 사용(PowerShell 한 줄, 토큰은 새로 연결할 때만):
-#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/leemaroemfocuse/emfocus-cs-plugin/main/install.ps1))) [-Endpoint <MCP 주소> -Token <토큰>]
+#   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/leemaroemfocuse/emfocus-cs-plugin/main/install.ps1))) [-Endpoint <MCP 주소> -Token <토큰>] [-Mode auto|notify|mcp]
+# -Mode: auto(기본) 새 티켓 AI 분석·메모 + 메모 등록 알림 / notify 새 티켓 알림만(AI 실행 없음) / mcp MCP 연결만(대화로 조회·요청할 때만 사용, 플러그인·예약 작업 없음)
 # 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 켜기 → 알림 예약 등록 → 연결 확인 → 테스트 알림
-param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE)
+param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('auto', 'notify', 'mcp')][string]$Mode = 'auto')
 $ok = @(); $warn = @()
 # 다른 PC에서 실패했을 때 원인을 볼 수 있게 각 명령 출력을 남긴다.
 $logDir = Join-Path $env:LOCALAPPDATA 'CsCenter'; New-Item -ItemType Directory -Force $logDir | Out-Null
@@ -23,6 +24,20 @@ if ($Endpoint -and $Token) {
     Run mcp remove cs-center -s user
     Run mcp add --transport http cs-center $Endpoint --header "Authorization: Bearer $Token" -s user
     $ok += 'MCP 연결 등록'
+}
+
+# MCP만: 플러그인·예약 작업을 두지 않는다(예전에 설치했으면 지운다). 연결 확인만 하고 끝낸다.
+Set-Content (Join-Path $logDir 'mode.txt') $Mode
+if ($Mode -eq 'mcp') {
+    Run plugin uninstall cs@emfocus-cs -s user
+    Unregister-ScheduledTask -TaskName 'CS 자동 유지보수' -Confirm:$false -ErrorAction SilentlyContinue
+    $mcp = (& $claude mcp list 2>$null) | Select-String '^cs-center:'
+    Write-Output '== CS MCP 연결 결과 (MCP만 사용)'
+    $ok | ForEach-Object { "완료: $_" }
+    if ("$mcp" -match 'Connected') { '완료: MCP 연결 확인' } else { "확인 필요: MCP 연결 안 됨 $mcp" }
+    Write-Output 'AI 자동 분석·알림 없음. Claude에게 "CS 내 새 티켓 보여줘"처럼 물어볼 때만 조회합니다.'
+    Write-Output '마지막으로 Claude를 닫았다가 다시 여세요.'
+    return
 }
 
 # 3. 플러그인. 이미 있으면 add/install 은 그냥 넘어가고 update 가 최신으로 올린다.
@@ -52,6 +67,7 @@ else { $warn += 'MCP 연결 없음: CS Center > MCP 연결 관리에서 토큰�
 Write-Output '== CS 자동 유지보수 설치 결과'
 $ok | ForEach-Object { "완료: $_" }
 $warn | ForEach-Object { "확인 필요: $_" }
-Write-Output '백그라운드 AI 권한: CS 티켓 조회, 분석 잠금, 내부 메모 등록(고객에게 안 보임), 등록한 소스 폴더 읽기만 허용(상태·담당자 변경, 고객 댓글, PowerShell 실행, 파일 쓰기 없음). 실행 기록은 %LOCALAPPDATA%\CsCenter\cs-auto.log'
+if ($Mode -eq 'notify') { Write-Output '방식: 새 티켓 알림만(AI 분석 실행 없음)' } else { Write-Output '방식: 새 티켓 AI 분석 → 내부 메모 등록 → 알림' }
+if ($Mode -eq 'auto') { Write-Output '백그라운드 AI 권한: CS 티켓 조회, 분석 잠금, 내부 메모 등록(고객에게 안 보임), 등록한 소스 폴더 읽기만 허용(상태·담당자 변경, 고객 댓글, PowerShell 실행, 파일 쓰기 없음). 실행 기록은 %LOCALAPPDATA%\CsCenter\cs-auto.log' }
 Write-Output "설치 기록: $log"
 Write-Output '마지막으로 Claude를 닫았다가 다시 여세요.'

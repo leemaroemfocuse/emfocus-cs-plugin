@@ -53,21 +53,22 @@ $seen = if (Test-Path $seenFile) { @(Get-Content $seenFile) } else { @() }
 $new = @($tickets | Where-Object { "$($_.statusCode)" -in '0', '1' -and "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object statusCode, ticketId)
 $site = $mcp.url -replace '/mcp$', ''
 
-# 새 티켓은 분석 대기열에만 넣는다. 알림은 분석 메모를 등록했을 때만 /cs:run 이 보낸다.
+# 알림만(mode.txt=notify)이면 새 티켓을 바로 알리고 AI는 돌리지 않는다.
+# 자동 분석이면 대기열에만 넣고, 알림은 분석 메모를 등록했을 때만 보낸다.
+$mode = (Get-Content (Join-Path $dir 'mode.txt') -ErrorAction SilentlyContinue | Select-Object -First 1)
 foreach ($t in $new) {
     Add-Content $seenFile $t.ticketId
-    Add-Content $queueFile $t.ticketId
+    if ($mode -eq 'notify') { & (Join-Path $PSScriptRoot 'notify.ps1') "새 티켓 $($t.ticketCode) · $($t.companyName)" $t.title "$site/Tickets/$($t.ticketId)" }
+    else { Add-Content $queueFile $t.ticketId }
     Log "새 티켓 $($t.ticketCode) ($($t.projectName)) $($t.title)"
 }
 
 # 분석은 한 번에 한 건만. 실패해도 같은 티켓을 계속 다시 돌지 않도록 대기열에서 먼저 뺀다.
-$queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
-if (-not $queue) { exit 0 }
 # claude: PATH(npm 설치) → 데스크톱 앱 안의 Claude Code(가장 최근 버전). 못 찾으면 대기열을 그대로 두고 끝낸다.
 $claude = (Get-Command claude.cmd, claude.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 if (-not $claude) { $claude = (Get-ChildItem "$env:APPDATA\Claude\claude-code\*\*\claude.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName }
-if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 분석을 건너뛴다.'; exit 1 }
-# 백그라운드로만 쓰는 PC도 새 버전을 받도록 분석 전에 하루 한 번 플러그인을 업데이트한다. 실패해도 분석은 그대로 한다.
+if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 업데이트·분석을 건너뛴다.'; exit 1 }
+# 백그라운드로만 쓰는 PC(알림만 포함)도 새 버전을 받도록 하루 한 번 플러그인을 업데이트한다. 실패해도 분석은 그대로 한다.
 $updFile = Join-Path $dir 'plugin-updated.txt'
 $today = Get-Date -Format 'yyyy-MM-dd'
 if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
@@ -76,6 +77,8 @@ if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     Set-Content $updFile $today
     Log '플러그인 업데이트 확인'
 }
+$queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
+if (-not $queue) { exit 0 }
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
 $tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
 # 무인 실행이라 PowerShell·파일 쓰기는 주지 않는다. 허용: CS 조회·AI 잠금·내부 메모 등록, 소스·캐시 읽기. 알림은 아래에서 이 스크립트가 보낸다.
