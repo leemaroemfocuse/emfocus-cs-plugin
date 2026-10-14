@@ -88,7 +88,7 @@ if (-not $queue) { exit 0 }
 #   그래서 기본 도구는 --tools 로 Read·Grep·Glob 만 남기고, 민감한 경로 읽기는 --disallowedTools 로 막는다(거부 규칙은 항상 적용).
 # - MCP는 --strict-mcp-config 로 cs-center 하나만 붙인다(이 PC의 다른 DB용 MCP는 쓰지 못함).
 #   cs-center 쓰기 도구는 AI 잠금·내부 메모 등록만 남기고 나머지는 거부한다.
-$allow = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
+$allow = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__read_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
 $deny = @('mcp__cs-center__delete_ticket', 'mcp__cs-center__change_ticket_status', 'mcp__cs-center__assign_ticket', 'mcp__cs-center__assign_ticket_to_me',
     'mcp__cs-center__add_ticket_comment', 'mcp__cs-center__reply_to_ticket_comment', 'mcp__cs-center__upload_ticket_attachment', 'mcp__cs-center__update_ticket_fields',
     'mcp__cs-center__set_ticket_schedule', 'mcp__cs-center__record_project_change_history', 'mcp__cs-center__claim_tickets')
