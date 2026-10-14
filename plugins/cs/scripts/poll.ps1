@@ -91,7 +91,10 @@ if (Test-Path $map) {
 Log "분석 시작 티켓 $($queue[0]) (남은 대기 $($queue.Count - 1)건)"
 # claude 출력은 UTF-8이라 받기 전에 맞춘다(안 하면 로그·알림 한글이 깨짐).
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
-$out = cmd.exe /c "cd /d `"$WorkDir`" && `"$claude`" -p `"/cs:run ticket=$($queue[0]) url=$site/Tickets/$($queue[0])`" --allowedTools $tools$addDirs 2>&1"
+# 작업 폴더를 사용자 폴더가 아닌 cs-knowledge 로 둔다. 사용자 폴더로 두면 ~/.claude.json(토큰)·.ssh 까지 읽기 범위에 들어간다.
+$aiDir = Split-Path $map
+New-Item -ItemType Directory -Force $aiDir | Out-Null
+$out = cmd.exe /c "cd /d `"$aiDir`" && `"$claude`" -p `"/cs:run ticket=$($queue[0]) url=$site/Tickets/$($queue[0])`" --allowedTools $tools$addDirs 2>&1"
 $out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
 # 메모를 등록했을 때만 알린다(/cs:run 이 마지막에 MEMO_OK|번호|제목 을 출력).
 $ok = $out | Where-Object { $_ -like 'MEMO_OK|*' } | Select-Object -Last 1
