@@ -37,7 +37,16 @@ try {
     $text = [Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray())
     $data = ($text -split "`n" | Where-Object { $_ -like 'data: *' } | Select-Object -First 1).Substring(6) | ConvertFrom-Json
     $tickets = ($data.result.content[0].text | ConvertFrom-Json).tickets
-} catch { Log "조회 실패: $($_.Exception.Message)"; exit 1 }
+} catch {
+    Log "조회 실패: $($_.Exception.Message)"
+    # 토큰 만료·폐기(401)면 하루 한 번 알리고, 누르면 MCP 연결 관리(재발급)로 간다.
+    $expFile = Join-Path $dir 'token-expired.txt'
+    if ($_.Exception.Response.StatusCode -eq 401 -and (Get-Content $expFile -ErrorAction SilentlyContinue) -ne (Get-Date -Format 'yyyy-MM-dd')) {
+        Set-Content $expFile (Get-Date -Format 'yyyy-MM-dd')
+        & (Join-Path $PSScriptRoot 'notify.ps1') 'CS MCP 연결 만료' '눌러서 MCP 연결 관리에서 재발급하세요. 재발급 화면의 설치 한 줄을 실행하면 다시 연결됩니다.' "$($mcp.url -replace '/mcp$', '')/McpSettings"
+    }
+    exit 1
+}
 
 $seen = if (Test-Path $seenFile) { @(Get-Content $seenFile) } else { @() }
 # 최근 7일 티켓 중 접수(0)·대기(1)만 본다. 진행·완료된 티켓은 알리지도 분석하지도 않는다. 접수 먼저, 같은 상태는 오래된 순.
