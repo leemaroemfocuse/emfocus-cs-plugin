@@ -87,35 +87,54 @@ if ((Get-Content (Join-Path $dir 'update-mode.txt') -ErrorAction SilentlyContinu
 # 같은 실행에서 바로 다음 대기 티켓을 시도한다(5분을 기다리지 않음).
 $queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
 while ($queue) {
-    $id = $queue[0]; $queue = @($queue | Select-Object -Skip 1)
+    $id = $queue[0] -as [long]; $queue = @($queue | Select-Object -Skip 1)
+    if (-not $id) { continue }
     Set-Content $queueFile $queue
     try { $lock = McpCall 'claim_ai_analysis' "{`"ticketId`":$id}" } catch { Log "잠금 실패 티켓 ${id}: $($_.Exception.Message)"; continue }
     if ($lock.success) { $queue = @($id) + $queue; break }
     Log "건너뜀 티켓 ${id}: $($lock.message)"
 }
 if (-not $queue) { exit 0 }
-$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
-# 무인 실행이라 PowerShell·파일 쓰기는 주지 않는다. 허용: CS 조회·AI 잠금·내부 메모 등록, 소스·캐시 읽기. 알림은 아래에서 이 스크립트가 보낸다.
-# 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
+# 무인 실행 권한(2026-10-14 실제 시험으로 확인한 내용 반영).
+# - 사용자 설정의 기본 권한 방식(auto 등)에 따라 --allowedTools 만으로는 막히지 않는다(Bash·바깥 파일 읽기가 실행됨).
+#   그래서 기본 도구는 --tools 로 Read·Grep·Glob 만 남기고, 민감한 경로 읽기는 --disallowedTools 로 막는다(거부 규칙은 항상 적용).
+# - MCP는 --strict-mcp-config 로 cs-center 하나만 붙인다(이 PC의 다른 DB용 MCP는 쓰지 못함).
+#   cs-center 쓰기 도구는 AI 잠금·내부 메모 등록만 남기고 나머지는 거부한다.
+$allow = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
+$deny = @('mcp__cs-center__delete_ticket', 'mcp__cs-center__change_ticket_status', 'mcp__cs-center__assign_ticket', 'mcp__cs-center__assign_ticket_to_me',
+    'mcp__cs-center__add_ticket_comment', 'mcp__cs-center__reply_to_ticket_comment', 'mcp__cs-center__upload_ticket_attachment', 'mcp__cs-center__update_ticket_fields',
+    'mcp__cs-center__set_ticket_schedule', 'mcp__cs-center__record_project_change_history', 'mcp__cs-center__claim_tickets')
+foreach ($t in 'Read', 'Grep', 'Glob') {
+    foreach ($p in '~/.claude.json', '~/.claude.json.backup', '~/.claude/.credentials.json', '~/.claude/projects/**', '~/.claude/settings*.json', '~/.ssh/**', '~/.aws/**', '~/.git-credentials', '~/.config/**', '~/AppData/**', '~/Desktop/**', '~/Documents/**', '~/Downloads/**') { $deny += "$t($p)" }
+}
+# 도메인 문서 캐시 폴더(작업 폴더)와 projects.md 의 작업 소스(읽기용). 비교 전용은 넣지 않는다.
 $map = Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'
-$addDirs = " --add-dir `"$(Split-Path $map)`""
+$aiDir = Split-Path $map
+New-Item -ItemType Directory -Force $aiDir | Out-Null
+$dirs = @()
 if (Test-Path $map) {
     Get-Content $map -Encoding UTF8 | Where-Object { $_ -match '^\|\s*\d+\s*\|' } | ForEach-Object {
         $src = ($_ -split '\|')[4].Trim()
-        if ($src -and (Test-Path $src)) { $addDirs += " --add-dir `"$src`"" }
+        if ($src -and (Test-Path $src)) { $dirs += '--add-dir', $src }
     }
 }
-Log "분석 시작 티켓 $($queue[0]) (남은 대기 $($queue.Count - 1)건)"
+# cs-center 연결만 담은 MCP 설정. 실행이 끝나면 지운다.
+$mcpFile = Join-Path $dir 'mcp-run.json'
+@{ mcpServers = @{ 'cs-center' = @{ type = 'http'; url = $mcp.url; headers = @{ Authorization = $mcp.headers.Authorization } } } } | ConvertTo-Json -Depth 5 | Set-Content $mcpFile -Encoding UTF8
+$ticketId = [long]$queue[0]
+Log "분석 시작 티켓 $ticketId (남은 대기 $($queue.Count - 1)건)"
 # claude 출력은 UTF-8이라 받기 전에 맞춘다(안 하면 로그·알림 한글이 깨짐).
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
-# 작업 폴더를 사용자 폴더가 아닌 cs-knowledge 로 둔다. 사용자 폴더로 두면 ~/.claude.json(토큰)·.ssh 까지 읽기 범위에 들어간다.
-$aiDir = Split-Path $map
-New-Item -ItemType Directory -Force $aiDir | Out-Null
-$out = cmd.exe /c "cd /d `"$aiDir`" && `"$claude`" -p `"/cs:run ticket=$($queue[0]) url=$site/Tickets/$($queue[0])`" --allowedTools $tools$addDirs 2>&1"
+Push-Location $aiDir
+try {
+    $out = & $claude -p "/cs:run ticket=$ticketId url=$site/Tickets/$ticketId" --tools 'Read,Grep,Glob' --strict-mcp-config --mcp-config $mcpFile `
+        --allowedTools $allow --disallowedTools ($deny -join ' ') @dirs 2>&1
+} finally { Pop-Location; Remove-Item $mcpFile -ErrorAction SilentlyContinue }
 $out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
-# 메모를 등록했을 때만 알린다(/cs:run 이 마지막에 MEMO_OK|번호|제목 을 출력).
-$ok = $out | Where-Object { $_ -like 'MEMO_OK|*' } | Select-Object -Last 1
-if ($ok) {
-    $p = $ok -split '\|', 3
-    & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $($p[1]) 분석 메모 등록 - 확인 필요" $p[2] "$site/Tickets/$($queue[0])"
+# 메모를 등록했을 때만 알린다(/cs:run 이 마지막 줄에 MEMO_OK|번호|제목 을 출력).
+# 알림 문구는 AI 출력이 아니라 서버 목록의 티켓 번호·제목으로 만든다(티켓 내용으로 알림 문구를 꾸미지 못하게).
+if (@($out | ForEach-Object { "$_" } | Where-Object { $_ -like "MEMO_OK|*" })) {
+    $t = $tickets | Where-Object { "$($_.ticketId)" -eq "$ticketId" } | Select-Object -First 1
+    $code = if ($t) { $t.ticketCode } else { "#$ticketId" }
+    & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $code 분석 메모 등록 - 확인 필요" "$($t.title)" "$site/Tickets/$ticketId"
 }
