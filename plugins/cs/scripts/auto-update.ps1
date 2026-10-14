@@ -12,4 +12,6 @@ for ($i = $end; $i -lt $s.Length; $i++) {
 }
 if ($s.Substring($m.Index, $end - $m.Index) -match '"autoUpdate"') { exit 0 }
 $s = $s.Insert($m.Index + $m.Length, ' "autoUpdate": true,')
-[IO.File]::WriteAllText($f, $s, (New-Object Text.UTF8Encoding($false)))
+# 원래 파일에 BOM이 있었으면 그대로 둔다(사내 규칙 UTF-8 BOM과 맞추기).
+$bom = [IO.File]::ReadAllBytes($f)[0..2] -join ',' -eq '239,187,191'
+[IO.File]::WriteAllText($f, $s, (New-Object Text.UTF8Encoding($bom)))
