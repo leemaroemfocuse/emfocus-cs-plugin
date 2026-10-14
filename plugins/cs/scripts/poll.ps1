@@ -77,7 +77,7 @@ if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     Log '플러그인 업데이트 확인'
 }
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
-$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
+$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
 # 무인 실행이라 PowerShell·파일 쓰기는 주지 않는다. 허용: CS 조회·AI 잠금·내부 메모 등록, 소스·캐시 읽기. 알림은 아래에서 이 스크립트가 보낸다.
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
 $map = Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'
