@@ -76,7 +76,8 @@ if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 업데이트·분
 # 백그라운드로만 쓰는 PC(알림만 포함)도 새 버전을 받도록 하루 한 번 플러그인을 업데이트한다. 실패해도 분석은 그대로 한다.
 $updFile = Join-Path $dir 'plugin-updated.txt'
 $today = Get-Date -Format 'yyyy-MM-dd'
-if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
+# 업데이트 방식이 자동(update-mode.txt=auto)일 때만. 물어보는 방식이면 Claude 세션에서 바뀐 내용을 보여 주고 고르게 한다.
+if ((Get-Content (Join-Path $dir 'update-mode.txt') -ErrorAction SilentlyContinue) -eq 'auto' -and (Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     & $claude plugin marketplace update emfocus-cs *>> $log
     & $claude plugin update cs@emfocus-cs -s user *>> $log
     Set-Content $updFile $today
