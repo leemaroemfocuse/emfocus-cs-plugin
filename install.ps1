@@ -3,7 +3,7 @@
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/leemaroemfocuse/emfocus-cs-plugin/main/install.ps1))) [-Endpoint <MCP 주소> -Token <토큰>] [-Mode auto|notify|mcp]
 # -Repo: 플러그인 저장소(기본 배포 저장소). 테스트할 때만 개인 저장소를 지정한다.
 # -Mode: auto(기본) 새 티켓 AI 분석·메모 + 메모 등록 알림 / notify 새 티켓 알림만(AI 실행 없음) / mcp MCP 연결만(대화로 조회·요청할 때만 사용, 플러그인·예약 작업 없음)
-# 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 켜기 → 알림 예약 등록 → 연결 확인 → 테스트 알림
+# 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 끄기(물어보고 업데이트) → 알림 예약 등록 → 연결 확인 → 테스트 알림
 param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('', 'auto', 'notify', 'mcp')][string]$Mode = '', [string]$Repo = 'leemaroemfocuse/emfocus-cs-plugin')
 $ok = @(); $warn = @()
 # 다른 PC에서 실패했을 때 원인을 볼 수 있게 각 명령 출력을 남긴다.
@@ -55,9 +55,9 @@ $root = Get-ChildItem "$env:USERPROFILE\.claude\plugins\cache\emfocus-cs\cs" -Di
 if (-not $root) { Write-Output "실패: 플러그인 설치에 실패했습니다. 기록: $log"; Get-Content $log -Tail 15; return }
 $ok += "플러그인 설치·업데이트 ($($root.Name))"
 
-# 4~5. 자동 업데이트 켜기, 알림 예약 등록(실행할 때마다 최신 설치 버전을 찾으므로 업데이트 후 다시 등록할 필요 없음)
+# 4~5. 자동 업데이트 끄기(업데이트는 물어보고 함), 알림 예약 등록(실행할 때마다 최신 설치 버전을 찾으므로 업데이트 후 다시 등록할 필요 없음)
 & "$($root.FullName)\scripts\auto-update.ps1"
-$ok += '자동 업데이트 켜짐'
+$ok += '업데이트: 새 버전이 나오면 Claude를 열 때 바뀐 내용을 보여 주고 물어봄'
 & "$($root.FullName)\scripts\register-task.ps1" -WorkDir $WorkDir | Out-Null
 if (Get-ScheduledTask -TaskName 'CS 자동 유지보수' -ErrorAction SilentlyContinue) { $ok += '새 티켓 알림 예약 (매일 09:30~18:30, 5분 간격)' } else { $warn += '알림 예약 등록 실패' }
 

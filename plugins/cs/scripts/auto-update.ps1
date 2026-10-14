@@ -1,7 +1,6 @@
 # 사용자 설정(~/.claude/settings.json)의 emfocus-cs 마켓플레이스 autoUpdate 를 업데이트 방식에 맞춘다.
-# 방식(%LOCALAPPDATA%\CsCenter\update-mode.txt): auto 자동 업데이트(true) / 그 외(ask·없음) 물어보고 업데이트(false).
-$mode = Get-Content (Join-Path $env:LOCALAPPDATA 'CsCenter\update-mode.txt') -ErrorAction SilentlyContinue | Select-Object -First 1
-$want = if ($mode -eq 'auto') { 'true' } else { 'false' }
+# 자동 업데이트는 쓰지 않는다(보안 검토: 검토 없는 코드가 바로 실행되지 않게). 업데이트는 세션 시작 때 바뀐 내용을 보여 주고 사용자가 고른다.
+$want = 'false'
 $f = Join-Path $env:USERPROFILE '.claude\settings.json'
 if (-not (Test-Path $f)) { exit 0 }
 $s = [IO.File]::ReadAllText($f)

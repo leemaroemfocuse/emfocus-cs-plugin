@@ -73,16 +73,7 @@ foreach ($t in $new) {
 $claude = (Get-Command claude.cmd, claude.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 if (-not $claude) { $claude = (Get-ChildItem "$env:APPDATA\Claude\claude-code\*\*\claude.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName }
 if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 업데이트·분석을 건너뛴다.'; exit 1 }
-# 백그라운드로만 쓰는 PC(알림만 포함)도 새 버전을 받도록 하루 한 번 플러그인을 업데이트한다. 실패해도 분석은 그대로 한다.
-$updFile = Join-Path $dir 'plugin-updated.txt'
-$today = Get-Date -Format 'yyyy-MM-dd'
-# 업데이트 방식이 자동(update-mode.txt=auto)일 때만. 물어보는 방식이면 Claude 세션에서 바뀐 내용을 보여 주고 고르게 한다.
-if ((Get-Content (Join-Path $dir 'update-mode.txt') -ErrorAction SilentlyContinue) -eq 'auto' -and (Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
-    & $claude plugin marketplace update emfocus-cs *>> $log
-    & $claude plugin update cs@emfocus-cs -s user *>> $log
-    Set-Content $updFile $today
-    Log '플러그인 업데이트 확인'
-}
+# 업데이트는 하지 않는다. 사람이 Claude를 열 때 바뀐 내용을 보고 고른다.
 # 분석 전에 Claude 없이 잠금부터 건다. 다른 사람의 AI가 먼저 잡았거나 이미 분석된 티켓은 토큰을 쓰지 않고 건너뛰고,
 # 같은 실행에서 바로 다음 대기 티켓을 시도한다(5분을 기다리지 않음).
 $queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
