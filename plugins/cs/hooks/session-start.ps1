@@ -3,7 +3,7 @@
 $t = Get-ScheduledTask -TaskName 'CS 자동 유지보수' -ErrorAction SilentlyContinue
 # 사용자가 /cs:stop 으로 꺼 뒀으면(stopped.txt) 다시 등록하지 않는다.
 $stopped = Test-Path (Join-Path $env:LOCALAPPDATA 'CsCenter\stopped.txt')
-if (-not $stopped -and (-not $t -or $t.Description -ne 'cs-poll v3')) { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
+if (-not $stopped -and (-not $t -or $t.Description -ne 'cs-poll v4')) { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
 
 $setup = ''
 if (-not (Test-Path (Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'))) {

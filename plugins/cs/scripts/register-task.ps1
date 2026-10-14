@@ -7,8 +7,9 @@ param([int]$Minutes = 5, [string]$Project = '', [string]$WorkDir = $env:USERPROF
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 
 $pollArgs = "-WorkDir '$WorkDir'" + $(if ($Project) { " -Project $Project" } else { '' })
-# 자동 업데이트로 플러그인 폴더가 바뀌어도 다시 등록할 필요 없게, 실행할 때마다 가장 최근 설치 버전의 poll.ps1 을 찾는다.
-$latest = "(Get-ChildItem `$env:USERPROFILE\.claude\plugins\cache\emfocus-cs\cs -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName + '\scripts\poll.ps1'"
+# 업데이트로 플러그인 폴더가 바뀌어도 다시 등록할 필요 없게, 실행할 때마다 지금 설치된 버전(installed_plugins.json 의 installPath)의 poll.ps1 을 쓴다.
+# 폴더 수정 시각으로 고르면 같은 시각에 받은 예전 폴더를 고를 수 있어서 쓰지 않는다.
+$latest = "(Get-Content `$env:USERPROFILE\.claude\plugins\installed_plugins.json -Raw | ConvertFrom-Json).plugins.'cs@emfocus-cs'[0].installPath + '\scripts\poll.ps1'"
 # conhost --headless: 콘솔 창을 띄우지 않는다.
 $action = New-ScheduledTaskAction -Execute 'conhost.exe' -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -Command `"& ($latest) $pollArgs`""
 # 근무 시간(09:30~18:30)에만 조회한다. 매일 09:30에 시작해 9시간 동안 반복한다.
@@ -20,5 +21,5 @@ $triggers = @($daily, (New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME))
 $settings = New-ScheduledTaskSettingsSet -MultipleInstances IgnoreNew -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 2)
 # Description 은 세션 시작 훅이 예약 방식이 바뀌었는지 판단하는 표시다. 방식을 바꾸면 값도 올린다.
 Remove-Item (Join-Path $env:LOCALAPPDATA 'CsCenter\stopped.txt') -ErrorAction SilentlyContinue
-Register-ScheduledTask -TaskName 'CS 자동 유지보수' -Description 'cs-poll v3' -Action $action -Trigger $triggers -Settings $settings -Force | Out-Null
+Register-ScheduledTask -TaskName 'CS 자동 유지보수' -Description 'cs-poll v4' -Action $action -Trigger $triggers -Settings $settings -Force | Out-Null
 "등록 완료: 09:30~18:30 ${Minutes}분 간격 새 티켓 확인$(if ($Project) { ", 프로젝트 $Project" }), 작업 폴더 $WorkDir, 로그 $(Join-Path $env:LOCALAPPDATA 'CsCenter\cs-auto.log')"
