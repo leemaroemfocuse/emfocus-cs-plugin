@@ -48,7 +48,7 @@ try {
     $expFile = Join-Path $dir 'token-expired.txt'
     if ($_.Exception.Response.StatusCode -eq 401 -and (Get-Content $expFile -ErrorAction SilentlyContinue) -ne (Get-Date -Format 'yyyy-MM-dd')) {
         Set-Content $expFile (Get-Date -Format 'yyyy-MM-dd')
-        & (Join-Path $PSScriptRoot 'notify.ps1') 'CS MCP 연결 만료' '눌러서 MCP 연결 관리에서 재발급하세요. 재발급 화면의 설치 한 줄을 실행하면 다시 연결됩니다.' "$($mcp.url -replace '/mcp$', '')/McpSettings"
+        & (Join-Path $PSScriptRoot 'notify.ps1') 'CS MCP 연결 만료' '눌러서 MCP 연결 관리에서 [재발급]을 누르고, 화면의 토큰 교체 문장을 Claude에 붙여 넣으세요.' "$($mcp.url -replace '/mcp$', '')/McpSettings"
     }
     exit 1
 }
