@@ -115,10 +115,24 @@ Log "분석 시작 티켓 $ticketId (남은 대기 $($queue.Count - 1)건)"
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 Push-Location $aiDir
 try {
-    $out = & $claude -p "/cs:run ticket=$ticketId url=$site/Tickets/$ticketId" --tools 'Read,Grep,Glob' --strict-mcp-config --mcp-config $mcpFile `
-        --allowedTools $allow --disallowedTools ($deny -join ' ') @dirs 2>&1
+    $raw = & $claude -p "/cs:run ticket=$ticketId url=$site/Tickets/$ticketId" --tools 'Read,Grep,Glob' --strict-mcp-config --mcp-config $mcpFile `
+        --allowedTools $allow --disallowedTools ($deny -join ' ') @dirs --output-format stream-json --verbose 2>&1
 } finally { Pop-Location; Remove-Item $mcpFile -ErrorAction SilentlyContinue }
-$out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
+# 무엇을 했는지 남긴다: 부른 도구와 읽은 파일 경로(내용은 남기지 않음), 그리고 최종 답변.
+$out = @()
+foreach ($line in $raw) {
+    try { $e = "$line" | ConvertFrom-Json } catch { if ("$line" -notlike 'Warning: no stdin*') { Log "출력: $line" }; continue }
+    if ($e.type -eq 'assistant') {
+        foreach ($c in @($e.message.content | Where-Object { $_.type -eq 'tool_use' })) {
+            $what = @($c.input.file_path, $c.input.path, $c.input.pattern, $c.input.ticketId) | Where-Object { $_ } | Select-Object -First 2
+            Log "티켓 $ticketId 도구: $($c.name) $($what -join ' ')"
+        }
+    } elseif ($e.type -eq 'result') {
+        $out = @("$($e.result)" -split "`r?`n")
+        Log "티켓 $ticketId 결과($($e.subtype)):"
+        $out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
+    }
+}
 # 메모를 등록했을 때만 알린다(/cs:run 이 마지막 줄에 MEMO_OK|번호|제목 을 출력).
 # 알림 문구는 AI 출력이 아니라 서버 목록의 티켓 번호·제목으로 만든다(티켓 내용으로 알림 문구를 꾸미지 못하게).
 if (@($out | ForEach-Object { "$_" } | Where-Object { $_ -like "MEMO_OK|*" })) {
