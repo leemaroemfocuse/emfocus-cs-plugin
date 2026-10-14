@@ -1,7 +1,9 @@
 ﻿# 세션 시작: 자동 업데이트를 켜 두고, 알림 예약이 없거나 예전 방식이면 다시 등록한 뒤, 사용 안내를 컨텍스트로 넣는다. sh 없는 PC에서도 돈다.
 & (Join-Path $PSScriptRoot '..\scripts\auto-update.ps1')
 $t = Get-ScheduledTask -TaskName 'CS 자동 유지보수' -ErrorAction SilentlyContinue
-if (-not $t -or $t.Description -ne 'cs-poll v3') { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
+# 사용자가 /cs:stop 으로 꺼 뒀으면(stopped.txt) 다시 등록하지 않는다.
+$stopped = Test-Path (Join-Path $env:LOCALAPPDATA 'CsCenter\stopped.txt')
+if (-not $stopped -and (-not $t -or $t.Description -ne 'cs-poll v3')) { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
 
 $setup = ''
 if (-not (Test-Path (Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'))) {
