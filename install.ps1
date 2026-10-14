@@ -7,6 +7,8 @@
 # -Mode: auto(기본) 새 티켓 AI 분석·메모 + 메모 등록 알림 / notify 새 티켓 알림만(AI 실행 없음) / mcp MCP 연결만(대화로 조회·요청할 때만 사용, 플러그인·예약 작업 없음)
 # 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 끄기(물어보고 업데이트) → 알림 예약 등록 → 연결 확인 → 테스트 알림
 param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('', 'auto', 'notify', 'mcp')][string]$Mode = '', [string]$Repo = 'leemaroemfocuse/emfocus-cs-plugin', [switch]$TokenFromClipboard, [switch]$TokenOnly)
+# claude 등 외부 명령 출력(UTF-8)을 깨지지 않게 받는다(설치 기록·결과의 한글).
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $ok = @(); $warn = @()
 # 다른 PC에서 실패했을 때 원인을 볼 수 있게 각 명령 출력을 남긴다.
 $logDir = Join-Path $env:LOCALAPPDATA 'CsCenter'; New-Item -ItemType Directory -Force $logDir | Out-Null

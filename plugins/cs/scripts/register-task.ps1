@@ -3,6 +3,8 @@
 # 사용: powershell -ExecutionPolicy Bypass -File register-task.ps1 [-Minutes 5] [-Project 20] [-WorkDir <소스 폴더>]
 # 해제: /cs:stop (꺼 둔 표시 stopped.txt 를 남겨 세션 시작 때 다시 등록되지 않게 한다). 이 스크립트를 실행하면(/cs:start·설치) 표시를 지우고 다시 켠다.
 param([int]$Minutes = 5, [string]$Project = '', [string]$WorkDir = $env:USERPROFILE)
+# 출력(한글·경로)을 UTF-8로 내보낸다. Claude가 이 출력을 UTF-8로 읽기 때문에 시스템 코드 페이지로 쓰면 깨진다.
+[Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 
 $pollArgs = "-WorkDir '$WorkDir'" + $(if ($Project) { " -Project $Project" } else { '' })
 # 자동 업데이트로 플러그인 폴더가 바뀌어도 다시 등록할 필요 없게, 실행할 때마다 가장 최근 설치 버전의 poll.ps1 을 찾는다.
