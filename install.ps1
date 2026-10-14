@@ -1,9 +1,10 @@
 # CS 자동 유지보수 한 번에 설치·업데이트. 처음 설치든 예전 설치를 최신으로 올리든 이것 하나로 끝난다.
 # 사용(PowerShell 한 줄, 토큰은 새로 연결할 때만):
 #   & ([scriptblock]::Create((irm https://raw.githubusercontent.com/leemaroemfocuse/emfocus-cs-plugin/main/install.ps1))) [-Endpoint <MCP 주소> -Token <토큰>] [-Mode auto|notify|mcp]
+# -Repo: 플러그인 저장소(기본 배포 저장소). 테스트할 때만 개인 저장소를 지정한다.
 # -Mode: auto(기본) 새 티켓 AI 분석·메모 + 메모 등록 알림 / notify 새 티켓 알림만(AI 실행 없음) / mcp MCP 연결만(대화로 조회·요청할 때만 사용, 플러그인·예약 작업 없음)
 # 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 켜기 → 알림 예약 등록 → 연결 확인 → 테스트 알림
-param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('auto', 'notify', 'mcp')][string]$Mode = 'auto')
+param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('auto', 'notify', 'mcp')][string]$Mode = 'auto', [string]$Repo = 'leemaroemfocuse/emfocus-cs-plugin')
 $ok = @(); $warn = @()
 # 다른 PC에서 실패했을 때 원인을 볼 수 있게 각 명령 출력을 남긴다.
 $logDir = Join-Path $env:LOCALAPPDATA 'CsCenter'; New-Item -ItemType Directory -Force $logDir | Out-Null
@@ -41,7 +42,9 @@ if ($Mode -eq 'mcp') {
 }
 
 # 3. 플러그인. 이미 있으면 add/install 은 그냥 넘어가고 update 가 최신으로 올린다.
-Run plugin marketplace add leemaroemfocuse/emfocus-cs-plugin
+# -Repo: 테스트 PC는 개인 저장소, 그 외는 배포 저장소. 다른 저장소가 같은 이름으로 등록돼 있으면 지우고 다시 등록한다.
+if ((& $claude plugin marketplace list 2>$null | Out-String) -match 'emfocus-cs' -and -not ((Get-Content "$env:USERPROFILE\.claude\plugins\known_marketplaces.json" -Raw -ErrorAction SilentlyContinue) -match [regex]::Escape($Repo))) { Run plugin marketplace remove emfocus-cs }
+Run plugin marketplace add $Repo
 Run plugin marketplace update emfocus-cs
 Run plugin install cs@emfocus-cs -s user
 Run plugin update cs@emfocus-cs -s user
