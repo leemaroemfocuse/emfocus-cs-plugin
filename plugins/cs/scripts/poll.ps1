@@ -29,14 +29,11 @@ try {
     Add-Type -AssemblyName System.Web.Extensions
     $js = New-Object Web.Script.Serialization.JavaScriptSerializer
     $js.MaxJsonLength = [int]::MaxValue
-    # cs-center 연결 설정은 사용자 설정에도, 프로젝트 폴더(.mcp.json)에도 있을 수 있다.
-    $cfg = $null
-    foreach ($f in @((Join-Path $env:USERPROFILE '.claude.json'), (Join-Path $WorkDir '.mcp.json'))) {
-        if (-not (Test-Path $f)) { continue }
-        $servers = $js.DeserializeObject((Get-Content $f -Raw -Encoding UTF8))['mcpServers']
-        if ($servers -and $servers['cs-center']) { $cfg = $servers['cs-center']; break }
-    }
-    if (-not $cfg) { Log 'cs-center MCP 연결 설정을 찾지 못했다. Claude에서 cs-center MCP를 먼저 연결하라.'; exit 1 }
+    # cs-center 연결은 설치 때 등록한 사용자 설정(~/.claude.json)에서만 읽는다. 폴더의 .mcp.json 은 보지 않는다(토큰이 다른 서버로 가지 않게).
+    $servers = $js.DeserializeObject((Get-Content (Join-Path $env:USERPROFILE '.claude.json') -Raw -Encoding UTF8))['mcpServers']
+    $cfg = if ($servers) { $servers['cs-center'] }
+    if (-not $cfg) { Log 'cs-center MCP 연결 설정을 찾지 못했다. CS Center > MCP 연결 관리의 설치 문장으로 먼저 연결하라.'; exit 1 }
+    if ("$($cfg['url'])" -notlike 'https://*') { Log "cs-center MCP 주소가 https 가 아니라 중단한다: $($cfg['url'])"; exit 1 }
     # 웹 안내대로 "Bearer ${CS_CENTER_MCP_TOKEN}" 처럼 환경 변수로 넣은 경우 사용자 환경 변수에서 채운다.
     $auth = [regex]::Replace($cfg['headers']['Authorization'], '\$\{(\w+)\}', {
         param($m) $v = [Environment]::GetEnvironmentVariable($m.Groups[1].Value, 'User'); if ($v) { $v } else { [Environment]::GetEnvironmentVariable($m.Groups[1].Value) } })
@@ -128,4 +125,10 @@ if (@($out | ForEach-Object { "$_" } | Where-Object { $_ -like "MEMO_OK|*" })) {
     $t = $tickets | Where-Object { "$($_.ticketId)" -eq "$ticketId" } | Select-Object -First 1
     $code = if ($t) { $t.ticketCode } else { "#$ticketId" }
     & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $code 분석 메모 등록 - 확인 필요" "$($t.title)" "$site/Tickets/$ticketId"
+} elseif (-not @($out | ForEach-Object { "$_" } | Where-Object { $_ -like "*분석 대상 아님*" })) {
+    # 잠금까지 걸었는데 메모를 못 남겼으면(오류·중단·권한 문제) 실패도 알린다. 누르면 티켓을 열어 직접 확인한다. 원인은 cs-auto.log.
+    $t = $tickets | Where-Object { "$($_.ticketId)" -eq "$ticketId" } | Select-Object -First 1
+    $code = if ($t) { $t.ticketCode } else { "#$ticketId" }
+    Log "분석 실패 티켓 $ticketId (메모 등록 안 됨)"
+    & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $code AI 분석 실패 - 직접 확인" "$($t.title)" "$site/Tickets/$ticketId"
 }
