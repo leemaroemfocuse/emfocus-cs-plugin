@@ -13,6 +13,17 @@ $seenFile = Join-Path $dir 'seen.txt'
 $queueFile = Join-Path $dir 'queue.txt'
 function Log($m) { Add-Content $log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" -Encoding UTF8 }
 
+# MCP 도구 하나를 Claude 없이 직접 호출해 결과 JSON을 돌려준다.
+function McpCall($name, $argsJson) {
+    $body = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"' + $name + '","arguments":' + $argsJson + '}}'
+    $res = Invoke-WebRequest $mcp.url -Method Post -UseBasicParsing -TimeoutSec 30 -Body $body -ContentType 'application/json' `
+        -Headers @{ Authorization = $mcp.headers.Authorization; Accept = 'application/json, text/event-stream' }
+    # 응답 헤더에 charset이 없어 한글이 깨지므로 바이트를 직접 UTF-8로 읽는다.
+    $text = [Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray())
+    $data = ($text -split "`n" | Where-Object { $_ -like 'data: *' } | Select-Object -First 1).Substring(6) | ConvertFrom-Json
+    $data.result.content[0].text | ConvertFrom-Json
+}
+
 try {
     # ConvertFrom-Json 은 대소문자만 다른 키가 있으면 실패해서 대소문자를 구분하는 파서를 쓴다.
     Add-Type -AssemblyName System.Web.Extensions
@@ -30,13 +41,7 @@ try {
     $auth = [regex]::Replace($cfg['headers']['Authorization'], '\$\{(\w+)\}', {
         param($m) $v = [Environment]::GetEnvironmentVariable($m.Groups[1].Value, 'User'); if ($v) { $v } else { [Environment]::GetEnvironmentVariable($m.Groups[1].Value) } })
     $mcp = @{ url = $cfg['url']; headers = @{ Authorization = $auth } }
-    $body = '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_my_new_tickets","arguments":{"hours":168,"limit":100}}}'
-    $res = Invoke-WebRequest $mcp.url -Method Post -UseBasicParsing -TimeoutSec 30 -Body $body -ContentType 'application/json' `
-        -Headers @{ Authorization = $mcp.headers.Authorization; Accept = 'application/json, text/event-stream' }
-    # 응답 헤더에 charset이 없어 한글이 깨지므로 바이트를 직접 UTF-8로 읽는다.
-    $text = [Text.Encoding]::UTF8.GetString($res.RawContentStream.ToArray())
-    $data = ($text -split "`n" | Where-Object { $_ -like 'data: *' } | Select-Object -First 1).Substring(6) | ConvertFrom-Json
-    $tickets = ($data.result.content[0].text | ConvertFrom-Json).tickets
+    $tickets = (McpCall 'get_my_new_tickets' '{"hours":168,"limit":100}').tickets
 } catch {
     Log "조회 실패: $($_.Exception.Message)"
     # 토큰 만료·폐기(401)면 하루 한 번 알리고, 누르면 MCP 연결 관리(재발급)로 간다.
@@ -77,9 +82,17 @@ if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     Set-Content $updFile $today
     Log '플러그인 업데이트 확인'
 }
+# 분석 전에 Claude 없이 잠금부터 건다. 다른 사람의 AI가 먼저 잡았거나 이미 분석된 티켓은 토큰을 쓰지 않고 건너뛰고,
+# 같은 실행에서 바로 다음 대기 티켓을 시도한다(5분을 기다리지 않음).
 $queue = @(Get-Content $queueFile -ErrorAction SilentlyContinue | Where-Object { $_ })
+while ($queue) {
+    $id = $queue[0]; $queue = @($queue | Select-Object -Skip 1)
+    Set-Content $queueFile $queue
+    try { $lock = McpCall 'claim_ai_analysis' "{`"ticketId`":$id}" } catch { Log "잠금 실패 티켓 ${id}: $($_.Exception.Message)"; continue }
+    if ($lock.success) { $queue = @($id) + $queue; break }
+    Log "건너뜀 티켓 ${id}: $($lock.message)"
+}
 if (-not $queue) { exit 0 }
-Set-Content $queueFile @($queue | Select-Object -Skip 1)
 $tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
 # 무인 실행이라 PowerShell·파일 쓰기는 주지 않는다. 허용: CS 조회·AI 잠금·내부 메모 등록, 소스·캐시 읽기. 알림은 아래에서 이 스크립트가 보낸다.
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
