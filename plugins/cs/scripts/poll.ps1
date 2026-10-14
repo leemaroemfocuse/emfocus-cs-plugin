@@ -77,7 +77,8 @@ if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     Log '플러그인 업데이트 확인'
 }
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
-$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge "Bash(powershell:*)" Read Grep Glob Write PushNotification'
+$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge Read Grep Glob'
+# 무인 실행이라 PowerShell·파일 쓰기는 주지 않는다. 허용: CS 조회·AI 잠금·내부 메모 등록, 소스·캐시 읽기. 알림은 아래에서 이 스크립트가 보낸다.
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
 $map = Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'
 $addDirs = " --add-dir `"$(Split-Path $map)`""
@@ -88,4 +89,13 @@ if (Test-Path $map) {
     }
 }
 Log "분석 시작 티켓 $($queue[0]) (남은 대기 $($queue.Count - 1)건)"
-cmd.exe /c "cd /d `"$WorkDir`" && `"$claude`" -p `"/cs:run ticket=$($queue[0]) url=$site/Tickets/$($queue[0])`" --allowedTools $tools$addDirs >> `"$log`" 2>&1"
+# claude 출력은 UTF-8이라 받기 전에 맞춘다(안 하면 로그·알림 한글이 깨짐).
+[Console]::OutputEncoding = [Text.Encoding]::UTF8
+$out = cmd.exe /c "cd /d `"$WorkDir`" && `"$claude`" -p `"/cs:run ticket=$($queue[0]) url=$site/Tickets/$($queue[0])`" --allowedTools $tools$addDirs 2>&1"
+$out | ForEach-Object { Add-Content $log $_ -Encoding UTF8 }
+# 메모를 등록했을 때만 알린다(/cs:run 이 마지막에 MEMO_OK|번호|제목 을 출력).
+$ok = $out | Where-Object { $_ -like 'MEMO_OK|*' } | Select-Object -Last 1
+if ($ok) {
+    $p = $ok -split '\|', 3
+    & (Join-Path $PSScriptRoot 'notify.ps1') "티켓 $($p[1]) 분석 메모 등록 - 확인 필요" $p[2] "$site/Tickets/$($queue[0])"
+}

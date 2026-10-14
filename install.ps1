@@ -52,5 +52,6 @@ else { $warn += 'MCP 연결 없음: CS Center > MCP 연결 관리에서 토큰�
 Write-Output '== CS 자동 유지보수 설치 결과'
 $ok | ForEach-Object { "완료: $_" }
 $warn | ForEach-Object { "확인 필요: $_" }
+Write-Output '백그라운드 AI 권한: CS 티켓 조회, 분석 잠금, 내부 메모 등록, 등록한 소스 폴더 읽기만 허용(PowerShell 실행·파일 쓰기 없음). 실행 기록은 %LOCALAPPDATA%\CsCenter\cs-auto.log'
 Write-Output "설치 기록: $log"
 Write-Output '마지막으로 Claude를 닫았다가 다시 여세요.'
