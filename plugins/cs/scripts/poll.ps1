@@ -51,8 +51,8 @@ try {
 }
 
 $seen = if (Test-Path $seenFile) { @(Get-Content $seenFile) } else { @() }
-# 최근 7일 티켓 중 접수(0)·대기(1)만 본다. 진행·완료된 티켓은 알리지도 분석하지도 않는다. 접수 먼저, 같은 상태는 오래된 순.
-$new = @($tickets | Where-Object { "$($_.statusCode)" -in '0', '1' -and "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object statusCode, ticketId)
+# 최근 7일 티켓 중 접수(0)만 본다(고객 대기·진행·완료는 알리지도 분석하지도 않는다). 진행·완료된 티켓은 알리지도 분석하지도 않는다. 접수 먼저, 같은 상태는 오래된 순.
+$new = @($tickets | Where-Object { "$($_.statusCode)" -eq '0' -and "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object statusCode, ticketId)
 $site = $mcp.url -replace '/mcp$', ''
 
 # 알림만(mode.txt=notify)이면 새 티켓을 바로 알리고 AI는 돌리지 않는다.
