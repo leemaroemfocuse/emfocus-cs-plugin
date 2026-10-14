@@ -4,7 +4,7 @@
 # -Repo: 플러그인 저장소(기본 배포 저장소). 테스트할 때만 개인 저장소를 지정한다.
 # -Mode: auto(기본) 새 티켓 AI 분석·메모 + 메모 등록 알림 / notify 새 티켓 알림만(AI 실행 없음) / mcp MCP 연결만(대화로 조회·요청할 때만 사용, 플러그인·예약 작업 없음)
 # 순서: claude 찾기 → MCP 연결 → 플러그인 설치·업데이트 → 자동 업데이트 켜기 → 알림 예약 등록 → 연결 확인 → 테스트 알림
-param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('auto', 'notify', 'mcp')][string]$Mode = 'auto', [string]$Repo = 'leemaroemfocuse/emfocus-cs-plugin')
+param([string]$Endpoint = '', [string]$Token = '', [string]$WorkDir = $env:USERPROFILE, [ValidateSet('', 'auto', 'notify', 'mcp')][string]$Mode = '', [string]$Repo = 'leemaroemfocuse/emfocus-cs-plugin')
 $ok = @(); $warn = @()
 # 다른 PC에서 실패했을 때 원인을 볼 수 있게 각 명령 출력을 남긴다.
 $logDir = Join-Path $env:LOCALAPPDATA 'CsCenter'; New-Item -ItemType Directory -Force $logDir | Out-Null
@@ -28,7 +28,10 @@ if ($Endpoint -and $Token) {
 }
 
 # MCP만: 플러그인·예약 작업을 두지 않는다(예전에 설치했으면 지운다). 연결 확인만 하고 끝낸다.
-Set-Content (Join-Path $logDir 'mode.txt') $Mode
+# -Mode 를 안 주면(업데이트만 할 때) 전에 고른 방식을 그대로 쓴다. 처음이면 자동 분석.
+$modeFile = Join-Path $logDir 'mode.txt'
+if (-not $Mode) { $Mode = Get-Content $modeFile -ErrorAction SilentlyContinue | Select-Object -First 1; if ($Mode -notin 'auto', 'notify', 'mcp') { $Mode = 'auto' } }
+Set-Content $modeFile $Mode
 if ($Mode -eq 'mcp') {
     Run plugin uninstall cs@emfocus-cs -s user
     Unregister-ScheduledTask -TaskName 'CS 자동 유지보수' -Confirm:$false -ErrorAction SilentlyContinue
