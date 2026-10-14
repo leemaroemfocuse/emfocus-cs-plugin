@@ -88,7 +88,10 @@ elseif ($mcp) { $warn += "MCP 연결 안 됨: $mcp (토큰이 만료됐으면 CS
 else { $warn += 'MCP 연결 없음: CS Center > MCP 연결 관리에서 토큰을 발급하고 그 화면의 설치 문장으로 다시 실행' }
 
 # 7. 테스트 알림
-& "$($root.FullName)\scripts\notify.ps1" 'CS 자동 유지보수 설치 완료' '새 티켓이 올라오면 이렇게 알려 드립니다.'
+# 테스트 알림도 실제 알림과 같은 모양([열기] 버튼)으로. 주소는 MCP 연결 주소에서 /mcp 를 뺀 CS Center 주소.
+$site = if ($Endpoint) { $Endpoint } else { [regex]::Match((Get-Content "$env:USERPROFILE\.claude.json" -Raw -ErrorAction SilentlyContinue), '"cs-center"\s*:\s*\{[^}]*?"url"\s*:\s*"([^"]+)"').Groups[1].Value }
+$site = $site -replace '/mcp/?$', ''
+& "$($root.FullName)\scripts\notify.ps1" 'CS 자동 유지보수 설치 완료' '새 티켓 분석 메모가 등록되면 이렇게 알려 드립니다. [열기]를 누르면 해당 화면이 열립니다.' $site
 
 Write-Output '== CS 자동 유지보수 설치 결과'
 $ok | ForEach-Object { "완료: $_" }

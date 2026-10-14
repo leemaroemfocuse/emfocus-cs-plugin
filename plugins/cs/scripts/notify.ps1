@@ -14,7 +14,9 @@ Set-ItemProperty $key IconUri $icon
 
 $e = { param($s) [Security.SecurityElement]::Escape($s) }
 $launch = if ($Url) { " activationType=`"protocol`" launch=`"$(& $e $Url)`"" } else { "" }
-$open = if ($Url) { "<action content=`"티켓 열기`" activationType=`"protocol`" arguments=`"$(& $e $Url)`"/>" } else { "" }
+# 큰 알림(reminder)은 버튼이 하나 이상 있어야 Windows가 적용한다. 주소가 없을 때도 [닫기]를 넣어 항상 같은 모양으로 뜨게 한다.
+$open = if ($Url) { "<action content=`"열기`" activationType=`"protocol`" arguments=`"$(& $e $Url)`"/>" } else { "" }
+$open += "<action content=`"닫기`" activationType=`"system`" arguments=`"dismiss`"/>"
 $bodyXml = if ($Body) { "<text>$(& $e $Body)</text>" } else { "" }
 $xml = New-Object Windows.Data.Xml.Dom.XmlDocument
 $xml.LoadXml(@"
