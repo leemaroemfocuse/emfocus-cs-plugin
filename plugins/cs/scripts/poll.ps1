@@ -59,6 +59,15 @@ if (-not $queue) { exit 0 }
 $claude = (Get-Command claude.cmd, claude.exe -ErrorAction SilentlyContinue | Select-Object -First 1).Source
 if (-not $claude) { $claude = (Get-ChildItem "$env:APPDATA\Claude\claude-code\*\*\claude.exe" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1).FullName }
 if (-not $claude) { Log 'claude 실행 파일을 찾지 못해 분석을 건너뛴다.'; exit 1 }
+# 백그라운드로만 쓰는 PC도 새 버전을 받도록 분석 전에 하루 한 번 플러그인을 업데이트한다. 실패해도 분석은 그대로 한다.
+$updFile = Join-Path $dir 'plugin-updated.txt'
+$today = Get-Date -Format 'yyyy-MM-dd'
+if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
+    & $claude plugin marketplace update emfocus-cs *>> $log
+    & $claude plugin update cs@emfocus-cs -s user *>> $log
+    Set-Content $updFile $today
+    Log '플러그인 업데이트 확인'
+}
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
 $tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge "Bash(powershell:*)" Read Grep Glob Write PushNotification'
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
