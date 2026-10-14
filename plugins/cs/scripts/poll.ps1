@@ -53,12 +53,11 @@ $seen = if (Test-Path $seenFile) { @(Get-Content $seenFile) } else { @() }
 $new = @($tickets | Where-Object { "$($_.statusCode)" -in '0', '1' -and "$($_.ticketId)" -notin $seen -and (-not $Project -or "$($_.projectId)" -eq $Project) } | Sort-Object statusCode, ticketId)
 $site = $mcp.url -replace '/mcp$', ''
 
-# 새 티켓은 올라온 만큼 바로 알리고 분석 대기열에 넣는다.
+# 새 티켓은 분석 대기열에만 넣는다. 알림은 분석 메모를 등록했을 때만 /cs:run 이 보낸다.
 foreach ($t in $new) {
     Add-Content $seenFile $t.ticketId
     Add-Content $queueFile $t.ticketId
     Log "새 티켓 $($t.ticketCode) ($($t.projectName)) $($t.title)"
-    & (Join-Path $PSScriptRoot 'notify.ps1') "새 티켓 $($t.ticketCode) · $($t.companyName)" $t.title "$site/Tickets/$($t.ticketId)"
 }
 
 # 분석은 한 번에 한 건만. 실패해도 같은 티켓을 계속 다시 돌지 않도록 대기열에서 먼저 뺀다.
@@ -78,7 +77,7 @@ if ((Get-Content $updFile -ErrorAction SilentlyContinue) -ne $today) {
     Log '플러그인 업데이트 확인'
 }
 Set-Content $queueFile @($queue | Select-Object -Skip 1)
-$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge "Bash(powershell:*)" Read Grep Glob Write PushNotification'
+$tools = 'mcp__cs-center__get_ticket_maintenance_context mcp__cs-center__get_my_ticket_detail mcp__cs-center__claim_ai_analysis mcp__cs-center__get_ticket_activity mcp__cs-center__get_ticket_attachments mcp__cs-center__download_ticket_attachment mcp__cs-center__add_internal_note mcp__cs-center__change_ticket_status mcp__cs-center__get_my_projects mcp__cs-center__get_project_domain_knowledge "Bash(powershell:*)" Read Grep Glob Write PushNotification'
 # 도메인 문서 캐시 폴더와 projects.md 의 작업 소스(읽기용)를 허용 범위에 넣는다. 비교 전용은 넣지 않는다.
 $map = Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'
 $addDirs = " --add-dir `"$(Split-Path $map)`""
