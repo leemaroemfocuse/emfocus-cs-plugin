@@ -17,7 +17,7 @@ if (Test-Path (Join-Path $PSScriptRoot '..\scripts\migrate.ps1')) {
 $t = Get-ScheduledTask -TaskName 'CS 자동 유지보수' -ErrorAction SilentlyContinue
 # 사용자가 /cs:stop 으로 꺼 뒀거나(stopped.txt) MCP만 쓰기로 했으면 다시 등록하지 않는다.
 $stopped = (Test-Path (Join-Path $env:LOCALAPPDATA 'CsCenter\stopped.txt')) -or (Get-Content (Join-Path $env:LOCALAPPDATA 'CsCenter\mode.txt') -ErrorAction SilentlyContinue | Select-Object -First 1) -eq 'mcp'
-if (-not $stopped -and (-not $t -or $t.Description -ne 'cs-poll v4')) { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
+if (-not $stopped -and (-not $t -or $t.Description -ne 'cs-poll v5')) { & (Join-Path $PSScriptRoot '..\scripts\register-task.ps1') | Out-Null }
 
 $setup = ''
 if (-not (Test-Path (Join-Path $env:USERPROFILE '.claude\cs-knowledge\projects.md'))) {

@@ -45,7 +45,7 @@ try {
     Run plugin install cs@emfocus-cs -s user
 
     # 새 출처에서 정식판(cs, cs-mcp 폴더)이 설치됐는지 확인한다.
-    $ip = [regex]::Match((Get-Content (Join-Path $env:USERPROFILE '.claude\plugins\installed_plugins.json') -Raw), '"cs@emfocus-cs"[\s\S]*?"installPath"\s*:\s*"([^"]+)"').Groups[1].Value -replace '\\\\', '\'
+    $ip = [regex]::Match((Get-Content (Join-Path $env:USERPROFILE '.claude\plugins\installed_plugins.json') -Raw -Encoding UTF8), '"cs@emfocus-cs"[\s\S]*?"installPath"\s*:\s*"([^"]+)"').Groups[1].Value -replace '\\\\', '\'
     $ok = $ip -and (Test-Path (Join-Path $ip 'scripts\poll.ps1')) -and (Test-Path (Join-Path $ip 'hooks\session-start.ps1'))
     $km2 = Get-Content (Join-Path $env:USERPROFILE '.claude\plugins\known_marketplaces.json') -Raw -Encoding UTF8
     $ok = $ok -and ($km2 -match [regex]::Escape(($Target -replace '\\', '\\')))

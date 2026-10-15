@@ -70,7 +70,7 @@ Run plugin marketplace update emfocus-cs
 Run plugin install cs@emfocus-cs -s user
 Run plugin update cs@emfocus-cs -s user
 # 지금 설치된 버전 폴더(installed_plugins.json 의 installPath). 폴더 수정 시각으로 고르면 예전 폴더를 고를 수 있다.
-$ip = [regex]::Match((Get-Content "$env:USERPROFILE\.claude\plugins\installed_plugins.json" -Raw -ErrorAction SilentlyContinue), '"cs@emfocus-cs"[\s\S]*?"installPath"\s*:\s*"([^"]+)"').Groups[1].Value -replace '\\\\', '\'
+$ip = [regex]::Match((Get-Content "$env:USERPROFILE\.claude\plugins\installed_plugins.json" -Raw -Encoding UTF8 -ErrorAction SilentlyContinue), '"cs@emfocus-cs"[\s\S]*?"installPath"\s*:\s*"([^"]+)"').Groups[1].Value -replace '\\\\', '\'
 $root = if ($ip -and (Test-Path $ip)) { Get-Item $ip } else { $null }
 if (-not $root) { Write-Output "실패: 플러그인 설치에 실패했습니다. 기록: $log"; Get-Content $log -Tail 15; return }
 $ok += "플러그인 설치·업데이트 ($($root.Name))"
