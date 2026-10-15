@@ -2,7 +2,7 @@
 # 출력(한글·경로)을 UTF-8로 내보낸다. Claude가 이 출력을 UTF-8로 읽기 때문에 시스템 코드 페이지로 쓰면 깨진다.
 [Console]::OutputEncoding = New-Object Text.UTF8Encoding($false)
 $skip = 'Windows|Program Files|ProgramData|\$Recycle|AppData|node_modules'
-Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
+Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 -and -not $_.DisplayRoot } | ForEach-Object {
     Get-ChildItem $_.Root -Directory -Hidden -Recurse -Depth 3 -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -in '.git', '.svn' -and $_.FullName -notmatch $skip }
 } | ForEach-Object {

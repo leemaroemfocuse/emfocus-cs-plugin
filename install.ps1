@@ -91,12 +91,13 @@ else { $warn += 'MCP 연결 없음: CS Center > MCP 연결 관리에서 토큰�
 # 테스트 알림도 실제 알림과 같은 모양([열기] 버튼)으로. 주소는 MCP 연결 주소에서 /mcp 를 뺀 CS Center 주소.
 $site = if ($Endpoint) { $Endpoint } else { [regex]::Match((Get-Content "$env:USERPROFILE\.claude.json" -Raw -ErrorAction SilentlyContinue), '"cs-center"\s*:\s*\{[^}]*?"url"\s*:\s*"([^"]+)"').Groups[1].Value }
 $site = $site -replace '/mcp/?$', ''
-& "$($root.FullName)\scripts\notify.ps1" 'CS 자동 유지보수 설치 완료' '새 티켓 분석 메모가 등록되면 이렇게 알려 드립니다. [열기]를 누르면 해당 화면이 열립니다.' $site
+$what = if ($Mode -eq 'notify') { '새 티켓이 올라오면' } else { '새 티켓 분석 메모가 등록되면' }
+& "$($root.FullName)\scripts\notify.ps1" 'CS 자동 유지보수 설치 완료' "$what 이렇게 알려 드립니다. [열기]를 누르면 해당 화면이 열립니다." $site
 
 Write-Output '== CS 자동 유지보수 설치 결과'
 $ok | ForEach-Object { "완료: $_" }
 $warn | ForEach-Object { "확인 필요: $_" }
 if ($Mode -eq 'notify') { Write-Output '방식: 새 티켓 알림만(AI 분석 실행 없음)' } else { Write-Output '방식: 새 티켓 AI 분석 → 내부 메모 등록 → 알림' }
-if ($Mode -eq 'auto') { Write-Output '백그라운드 AI 권한: CS 티켓 조회, 분석 잠금, 내부 메모 등록(고객에게 안 보임), 등록한 소스 폴더 읽기만 허용(상태·담당자 변경, 고객 댓글, PowerShell 실행, 파일 쓰기 없음). 실행 기록은 %LOCALAPPDATA%\CsCenter\cs-auto.log' }
+if ($Mode -eq 'auto') { Write-Output '백그라운드 AI 권한: CS 티켓·첨부 조회, 분석 잠금, 내부 메모 등록(고객에게 안 보임), 등록한 소스 폴더 읽기만 허용(상태·담당자 변경, 고객 댓글, PowerShell 실행, 파일 쓰기 없음). 실행 기록은 %LOCALAPPDATA%\CsCenter\cs-auto.log' }
 Write-Output "설치 기록: $log"
 Write-Output '마지막으로 Claude를 닫았다가 다시 여세요.'

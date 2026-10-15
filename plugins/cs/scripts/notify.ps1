@@ -24,7 +24,7 @@ $xml.LoadXml(@"
   <visual><binding template="ToastGeneric">
     <text>$(& $e $Title)</text>$bodyXml
     <text placement="attribution">AI 자동 유지보수</text>
-    <image placement="appLogoOverride" hint-crop="circle" src="file:///$($icon.Replace('\','/'))"/>
+    <image placement="appLogoOverride" hint-crop="circle" src="file:///$(& $e $icon.Replace('\','/'))"/>
   </binding></visual>
   <actions>$open</actions>
 </toast>

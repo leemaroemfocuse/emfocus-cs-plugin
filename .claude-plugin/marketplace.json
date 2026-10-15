@@ -2,6 +2,6 @@
   "name": "emfocus-cs",
   "owner": { "name": "EMFOCUS" },
   "plugins": [
-    { "name": "cs", "source": "./plugins/cs", "description": "CS Center 티켓 자동 가져가기·분석" }
+    { "name": "cs", "source": "./plugins/cs", "description": "CS Center 새 티켓 알림·AI 분석 메모" }
   ]
 }
