@@ -12,6 +12,12 @@ $log = Join-Path $dir 'cs-auto.log'
 $seenFile = Join-Path $dir 'seen.txt'
 $queueFile = Join-Path $dir 'queue.txt'
 function Log($m) { Add-Content $log "[$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')] $m" -Encoding UTF8 }
+# 회사 CS 저장소로 옮기기. 업데이트만 받고 Claude를 다시 열지 않아도 예약 작업이 옮긴다. 실패해도 한 시간에 한 번만 다시 해 본다(실패하면 플러그인을 다시 받으므로).
+$mlog = Join-Path $dir 'migrate.log'
+if ((Test-Path (Join-Path $PSScriptRoot 'migrate.ps1')) -and -not ((Test-Path $mlog) -and (Get-Item $mlog).LastWriteTime -gt (Get-Date).AddHours(-1))) {
+    Copy-Item (Join-Path $PSScriptRoot 'migrate.ps1') (Join-Path $dir 'migrate.ps1') -Force
+    Start-Process powershell.exe -WindowStyle Hidden -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$(Join-Path $dir 'migrate.ps1')`""
+}
 # MCP만(mode.txt=mcp)이면 아무것도 하지 않는다. 플러그인 삭제가 실패해 예약 작업이 남아도 돌지 않게.
 $mode = (Get-Content (Join-Path $dir 'mode.txt') -ErrorAction SilentlyContinue | Select-Object -First 1)
 if ($mode -eq 'mcp') { exit 0 }
